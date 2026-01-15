@@ -1,64 +1,53 @@
 # Reference Implementation: Offline Map Rotator
 
-**Role:** Developer
-**Stack:** AngularJS (v1.x), Leaflet.js, Single-File Distribution
+**Status:** De-identified Reference Artifact
+**Stack:** AngularJS 1.x, Leaflet.js
+**Architecture:** Single-File Monolith (Data Injection Pattern)
 
-## The Scenario
+## Project Overview
 
-I was handed a zip file containing 48 separate HTML files. Each file represented a different hour of the day, displaying statistical **color-coded polyline overlays** on a city map.
+This repository demonstrates a solution for deploying a temporal GIS visualization tool to field devices in a zero-connectivity environment.
 
-The client intended to print these 48 files as physical packets for field staff.
+The project originated from a requirement to distribute 48-hour activity forecast models to field operations staff. The source material consisted of a compressed archive containing 48 discrete HTML artifacts, each representing a single hour of geospatial probability data.
 
-## The Problem
+## Problem Statement
 
-A paper-based workflow fails in the field for three reasons:
+The initial distribution strategy relied on physical printouts of these artifacts. This approach presented significant operational risks:
 
-1. **Usability:** You can't zoom on paper to see street-level details.
+* **Data Latency:** Static media prevents real-time correlation between the current time and the active forecast model.
+* **Usability:** Physical maps lack zoom capabilities required for street-level navigation.
+* **Visual Noise:** The raw data contained low-probability vectors (inactivity indicators) that cluttered the display, obscuring actionable high-probability zones.
 
-2. **Compliance:** Relying on agents to manually check their watch and flip to the correct page in a 48-page packet guarantees errors. Agents often end up using outdated maps.
+## System Constraints
 
-3. **Noise:** The source maps were cluttered with low-probability blue lines (inactivity), making it hard to spot the actual high-activity targets.
+The technical environment imposed strict non-functional requirements:
 
-## The Constraints
+| Constraint | Implication |
+| :--- | :--- |
+| **Air-Gapped Operation** | Devices operate without reliable cellular/Wi-Fi. No external APIs or tile servers allowed. |
+| **Zero Infrastructure** | No internal web hosting available. Application must execute from the local file system. |
+| **Client-Side Security** | Browsers enforce strict CORS policies on `file://` protocol, blocking external data fetches. |
 
-We needed a digital tool, but the operating environment effectively ruled out standard web apps.
+## Solution Architecture
 
-| **Constraint** | **The Issue** | **The Consequence** |
-| :--- | :--- | :--- |
-| **Zero Connectivity** | Company-issued phones often have no cellular or Wi-Fi signal. | We cannot use cloud APIs, map tile servers, or authentication services. |
-| **No Hosting** | We had no IT infrastructure to host an internal site. | The tool must run directly from the phone's local file system. |
-| **Browser Security** | Browsers block local files (`file://`) from fetching data. | We cannot use `fetch()` or `XMLHttpRequest` to load external JSON files without a server. |
+The solution is a **Self-Contained Single-Page Application (SPA)** that utilizes a **Data Injection Pattern** to resolve the conflict between the offline requirement and browser security models.
 
-## The Solution
+### 1. Data Injection Strategy
+To bypass Cross-Origin Resource Sharing (CORS) restrictions on local file access, the build pipeline parses the 48 source artifacts and injects the vectorized geospatial data directly into the application bundle as a JavaScript constant. This ensures immediate data availability without network requests.
 
-I built a **Self-Contained Single-Page Application (SPA)** that bypasses the need for a server by bundling the data directly into the code.
+### 2. Temporal Synchronization
+The application implements an automated rotation engine that:
+* Derives the current operational time (target timezone: Indianapolis).
+* Performs O(1) lookups against the injected dataset to retrieve the active layer.
+* Automatically updates the viewport when the forecast hour changes.
 
-### 1. Data Injection (Solving CORS)
+### 3. Client-Side Filtering
+To improve data legibility, the rendering engine applies a configurable probability threshold. Vectors falling below this threshold are programmatically excluded from the DOM, reducing visual noise and improving rendering performance on mobile hardware.
 
-Since I couldn't fetch the 48 data files dynamically without a server, I created a build script that parses the original HTML files and injects their coordinate data directly into a JavaScript variable. This makes the data instantly available in memory.
+## Execution
 
-### 2. Automated Map Rotation
+1.  Download `index.html`.
+2.  Open in any modern web browser.
+3.  The application initializes immediately using the embedded reference data.
 
-Instead of building a complex dashboard, I built a simple rotator.
-
-* **Timezone Sync:** The app calculates the current time in the target city (Indianapolis).
-
-* **Auto-Rotate:** It automatically loads the correct map layer for the current hour.
-
-* **Countdown:** A visual timer shows agents exactly when the map will rotate next.
-
-### 3. Noise Filtering
-
-Since I controlled the rendering, I added a filter to hide the "low probability" blue lines. This declutters the map so agents only see the high-priority zones.
-
-## How to Run This Demo
-
-This repo contains the engine with sanitized mock data.
-
-1. Download `index.html`.
-
-2. Open it in any browser (Chrome, Edge, Firefox).
-
-3. The app runs immediately without a local server.
-
-> **Note:** This reference implementation links to CDN versions of Angular and Leaflet for demonstration purposes. The production version utilized locally embedded libraries to satisfy the strict offline requirement.
+*License: Proprietary / Reference Use Only*
