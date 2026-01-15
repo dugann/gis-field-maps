@@ -1,53 +1,51 @@
 # Reference Implementation: Offline Map Rotator
 
-**Status:** De-identified Reference Artifact
-**Stack:** AngularJS 1.x, Leaflet.js
-**Architecture:** Single-File Monolith (Data Injection Pattern)
+**Status:** De-identified reference artifact  
+**Stack:** AngularJS 1.x, Leaflet.js  
+**Architecture:** Single-file offline web app (embedded data)
 
-## Project Overview
+## Overview
 
-This repository demonstrates a solution for deploying a temporal GIS visualization tool to field devices in a zero-connectivity environment.
+This repository shows how to deliver a time-based GIS map viewer to field devices when there is no reliable internet access.
 
-The project originated from a requirement to distribute 48-hour activity forecast models to field operations staff. The source material consisted of a compressed archive containing 48 discrete HTML artifacts, each representing a single hour of geospatial probability data.
+The work started with a requirement to distribute 48 hours of forecast maps to field staff. The input was a zip file containing 48 separate HTML files, one per hour, each containing geospatial probability data.
 
-## Problem Statement
+## Problem
 
-The initial distribution strategy relied on physical printouts of these artifacts. This approach presented significant operational risks:
+The original approach was to print the maps, which created avoidable issues:
 
-* **Data Latency:** Static media prevents real-time correlation between the current time and the active forecast model.
-* **Usability:** Physical maps lack zoom capabilities required for street-level navigation.
-* **Visual Noise:** The raw data contained low-probability vectors (inactivity indicators) that cluttered the display, obscuring actionable high-probability zones.
+- **Stale information:** Paper cannot automatically align the current time to the correct hourly forecast.
+- **Limited usability:** Printouts cannot zoom for street-level use.
+- **Cluttered visuals:** Low-probability data made the maps noisy and harder to read.
 
-## System Constraints
+## Constraints
 
-The technical environment imposed strict non-functional requirements:
+| Constraint | What it means |
+| --- | --- |
+| **Offline operation** | No dependable cellular or Wi-Fi, and no external map or tile services. |
+| **No hosting** | The tool must run directly from the local file system. |
+| **Browser security limits** | Browsers restrict local file access, so the app cannot load data from other local files at runtime. |
 
-| Constraint | Implication |
-| :--- | :--- |
-| **Air-Gapped Operation** | Devices operate without reliable cellular/Wi-Fi. No external APIs or tile servers allowed. |
-| **Zero Infrastructure** | No internal web hosting available. Application must execute from the local file system. |
-| **Client-Side Security** | Browsers enforce strict CORS policies on `file://` protocol, blocking external data fetches. |
+## Solution
 
-## Solution Architecture
+A self-contained, single-page map viewer that embeds all required data and updates automatically based on the current hour.
 
-The solution is a **Self-Contained Single-Page Application (SPA)** that utilizes a **Data Injection Pattern** to resolve the conflict between the offline requirement and browser security models.
+### Embedded data
 
-### 1. Data Injection Strategy
-To bypass Cross-Origin Resource Sharing (CORS) restrictions on local file access, the build pipeline parses the 48 source artifacts and injects the vectorized geospatial data directly into the application bundle as a JavaScript constant. This ensures immediate data availability without network requests.
+A build step extracts the geospatial data from the 48 source files and packages it into the app as a JavaScript constant. This avoids runtime file loading and avoids network requests.
 
-### 2. Temporal Synchronization
-The application implements an automated rotation engine that:
-* Derives the current operational time (target timezone: Indianapolis).
-* Performs O(1) lookups against the injected dataset to retrieve the active layer.
-* Automatically updates the viewport when the forecast hour changes.
+### Automatic hourly rotation
 
-### 3. Client-Side Filtering
-To improve data legibility, the rendering engine applies a configurable probability threshold. Vectors falling below this threshold are programmatically excluded from the DOM, reducing visual noise and improving rendering performance on mobile hardware.
+The app uses the Indianapolis time zone to select the active hour’s layer and refreshes the map automatically when the hour changes.
 
-## Execution
+### Readability filtering
 
-1.  Download `index.html`.
-2.  Open in any modern web browser.
-3.  The application initializes immediately using the embedded reference data.
+A configurable probability threshold removes low-value vectors before rendering. This reduces clutter and improves performance on mobile devices.
 
-*License: Proprietary / Reference Use Only*
+## How to run
+
+1. Download `index.html`.
+2. Open it in any modern browser.
+3. The map loads immediately using the embedded reference data.
+
+*License: Proprietary, reference use only*
