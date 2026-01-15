@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<!--
+  SPDX-FileCopyrightText: © 2025 William Dugann <https://github.com/dugann>
+  SPDX-License-Identifier: LicenseRef-Proprietary
+
+  PROJECT: Offline Map Rotator
+  STATUS: De-identified Reference Implementation
+  ROLE: Solution Architect & Lead Developer
+  STACK: AngularJS 1.x, Leaflet.js, Single-File Distribution
+  
+  DESCRIPTION:
+  A self-contained Single Page Application (SPA) designed for zero-connectivity field operations.
+  This reference implementation demonstrates the "Data Injection" pattern used to bypass 
+  browser CORS restrictions when running local files without a web server.
+  
+  NOTE:
+  All proprietary client data has been replaced with a deterministic mock generator.
+-->
+<html lang="en" ng-app="FieldMapApp">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Offline Map Rotator</title>
+    
+    <!-- CSS: Tailwind (Configured for Dark Mode) & Leaflet -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class', // Enable manual dark mode toggle
+        }
+    </script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- JS Libraries: AngularJS 1.8 & Leaflet -->
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.2/angular.min.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <style>
+        /* Map covers full screen */
+        body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; }
+        #map-container { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; }
+        
+        /* Floating UI Panel */
+        .glass-panel {
+            backdrop-filter: blur(8px);
+            border-bottom: 1px solid rgba(0,0,0,0.1);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            transition: background-color 0.3s ease, border-color 0.3s ease;
+        }
+        
+        /* Pulse animation for 'Live' indicator */
+        @keyframes pulse-red {
+            0% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7); }
+            70% { box-shadow: 0 0 0 6px rgba(220, 38, 38, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
+        }
+        .live-indicator { animation: pulse-red 2s infinite; }
+        
+        /* Transition utility for UI elements */
+        .ui-transition { transition: all 0.3s ease; }
+    </style>
+</head>
+<body ng-controller="MapController" class="bg-gray-100 text-slate-800 dark:bg-slate-900 dark:text-slate-100 ui-transition">
+
+    <!-- 1. MAP LAYER -->
+    <div id="map-container" class="bg-slate-200 dark:bg-slate-800"></div>
+
+    <!-- 2. UI LAYER: HEADER DASHBOARD -->
+    <!-- Added dark: classes for dynamic styling -->
+    <div class="fixed top-0 left-0 right-0 z-[1000] glass-panel px-4 py-3 flex flex-col md:flex-row justify-between items-start md:items-center bg-white/95 dark:bg-slate-900/90 dark:border-slate-700">
+        
+        <!-- App Title & Status -->
+        <div class="flex items-center mb-3 md:mb-0 w-full md:w-auto justify-between md:justify-start">
+            <div class="flex items-center">
+                <div class="w-3 h-3 bg-red-600 rounded-full mr-2 live-indicator"></div>
+                <div>
+                    <h1 class="text-sm font-bold text-slate-900 dark:text-white uppercase tracking-wide">Offline Map Rotator</h1>
+                    <div class="text-xs text-slate-500 dark:text-slate-400 font-mono">
+                        <i class="fa-solid fa-clock mr-1"></i>{{ clock }} (IND)
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mobile Only: Quick Controls (Dark Mode Toggle) -->
+            <button ng-click="toggleDarkMode()" class="md:hidden text-slate-500 dark:text-slate-300 p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+                <i class="fa-solid" ng-class="isDarkMode ? 'fa-sun' : 'fa-moon'"></i>
+            </button>
+        </div>
+
+        <!-- Controls Container -->
+        <div class="flex flex-col md:flex-row gap-3 w-full md:w-auto items-stretch md:items-center">
+            
+            <!-- Map Layer Switcher -->
+            <div class="flex bg-slate-100 dark:bg-slate-800 rounded p-1 border border-slate-200 dark:border-slate-700">
+                <button ng-click="setLayer('light')" ng-class="{'bg-white dark:bg-slate-600 text-blue-600 dark:text-white shadow-sm': currentLayer === 'light', 'text-slate-500 dark:text-slate-400 hover:text-slate-700': currentLayer !== 'light'}" class="flex-1 px-3 py-1 text-[10px] font-bold uppercase rounded transition-all">
+                    Light
+                </button>
+                <button ng-click="setLayer('dark')" ng-class="{'bg-white dark:bg-slate-600 text-blue-600 dark:text-white shadow-sm': currentLayer === 'dark', 'text-slate-500 dark:text-slate-400 hover:text-slate-700': currentLayer !== 'dark'}" class="flex-1 px-3 py-1 text-[10px] font-bold uppercase rounded transition-all">
+                    Dark
+                </button>
+                <button ng-click="setLayer('sat')" ng-class="{'bg-white dark:bg-slate-600 text-blue-600 dark:text-white shadow-sm': currentLayer === 'sat', 'text-slate-500 dark:text-slate-400 hover:text-slate-700': currentLayer !== 'sat'}" class="flex-1 px-3 py-1 text-[10px] font-bold uppercase rounded transition-all">
+                    Sat
+                </button>
+            </div>
+
+            <!-- Desktop Only: Dark Mode Toggle -->
+            <button ng-click="toggleDarkMode()" class="hidden md:flex items-center justify-center w-8 h-8 rounded-full text-slate-500 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" title="Toggle Dark Mode">
+                <i class="fa-solid" ng-class="isDarkMode ? 'fa-sun' : 'fa-moon'"></i>
+            </button>
+
+            <!-- Data Status -->
+            <div class="flex space-x-2 text-xs">
+                <div class="bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 px-3 py-1.5 rounded border border-blue-100 dark:border-blue-800 font-medium hidden sm:block">
+                    <div class="text-[10px] uppercase text-blue-400 dark:text-blue-300">Model</div>
+                    <i class="fa-solid fa-layer-group mr-1"></i> {{ currentModelKey }}
+                </div>
+                <div class="bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 px-3 py-1.5 rounded border border-slate-200 dark:border-slate-700 font-medium flex-1 text-center">
+                    <div class="text-[10px] uppercase text-slate-400 dark:text-slate-500">Rotate In</div>
+                    <i class="fa-solid fa-hourglass-half mr-1"></i> {{ timeToRefresh }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. UI LAYER: ABOUT BUTTON (Bottom Left) -->
+    <button ng-click="toggleAbout()" class="fixed bottom-6 left-4 z-[1000] bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 w-10 h-10 rounded-full shadow-lg flex items-center justify-center hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors border border-slate-200 dark:border-slate-600">
+        <i class="fa-solid fa-info"></i>
+    </button>
+
+    <!-- MODAL -->
+    <div ng-show="showAbout" class="fixed inset-0 z-[2000] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4" ng-click="toggleAbout()">
+        <div class="bg-white dark:bg-slate-800 rounded-lg p-6 max-w-sm w-full shadow-2xl border border-slate-200 dark:border-slate-700" ng-click="$event.stopPropagation()">
+            <h2 class="text-lg font-bold mb-2 text-slate-800 dark:text-white">Reference Implementation</h2>
+            <p class="text-sm text-slate-600 dark:text-slate-300 mb-4">
+                This is a de-identified demo of the offline-first map engine. It uses <strong>Data Injection</strong> to bypass CORS and <strong>AngularJS</strong> to handle timezone-aware layer rotation.
+            </p>
+            <div class="bg-slate-100 dark:bg-slate-900 p-3 rounded text-xs font-mono text-slate-500 dark:text-slate-400 mb-4 border border-slate-200 dark:border-slate-700">
+                Generated: {{ currentModelKey }}<br>
+                Features Visible: {{ visibleFeatures }}<br>
+                Timezone: America/Indiana/Indianapolis
+            </div>
+            <button ng-click="toggleAbout()" class="w-full bg-blue-600 text-white py-2 rounded font-medium hover:bg-blue-700 transition-colors">Close</button>
+        </div>
+    </div>
+
+    <!-- APP LOGIC -->
+    <script>
+        // --- A. THE DATA INJECTION MOCK ---
+        // In the real app, the build script injects the full 48-hour dataset here.
+        // Structure: { 'KEY': { type: 'FeatureCollection', features: [...] } }
+        const MOCK_INJECTED_DATA = {
+            // We define a few generic keys. The app logic will fallback to these if the specific hour isn't found
+            // just so the demo always shows *something*.
+            "WEEKDAY_GENERIC": {
+                "type": "FeatureCollection",
+                "features": [
+                    // High Probability (Should Show RED)
+                    { "type": "Feature", "properties": { "score": 0.95 }, "geometry": { "type": "LineString", "coordinates": [[-86.158, 39.768], [-86.150, 39.768]] } },
+                    { "type": "Feature", "properties": { "score": 0.85 }, "geometry": { "type": "LineString", "coordinates": [[-86.158, 39.764], [-86.150, 39.764]] } },
+                    
+                    // Medium Probability (Should Show ORANGE)
+                    { "type": "Feature", "properties": { "score": 0.55 }, "geometry": { "type": "LineString", "coordinates": [[-86.160, 39.760], [-86.160, 39.770]] } },
+
+                    // Low Probability (Should be HIDDEN by the filter)
+                    { "type": "Feature", "properties": { "score": 0.20 }, "geometry": { "type": "LineString", "coordinates": [[-86.155, 39.762], [-86.155, 39.766]] } }, 
+                    { "type": "Feature", "properties": { "score": 0.10 }, "geometry": { "type": "LineString", "coordinates": [[-86.165, 39.762], [-86.165, 39.766]] } }
+                ]
+            }
+        };
+
+        // --- B. ANGULAR JS APP ---
+        var app = angular.module('FieldMapApp', []);
+
+        app.controller('MapController', function($scope, $interval, $timeout) {
+            
+            // 1. State
+            $scope.map = null;
+            $scope.geoJsonLayer = null;
+            $scope.baseLayer = null; // Current Tile Layer
+            $scope.clock = "--:--:--";
+            $scope.timeToRefresh = "-- min";
+            $scope.currentModelKey = "Loading...";
+            $scope.showAbout = false;
+            $scope.visibleFeatures = 0;
+            $scope.currentData = null; // Store current data for re-filtering
+            
+            // View Settings
+            $scope.isDarkMode = false;
+            $scope.currentLayer = 'light';
+
+            // 2. Constants
+            const TARGET_TIMEZONE = 'America/Indiana/Indianapolis';
+            const DISPLAY_THRESHOLD = 0.3; // Hide lines below 30% probability (Blue noise)
+
+            // Map Tile Sources
+            const TILE_SOURCES = {
+                light: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+                dark: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+                sat: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+            };
+            const TILE_ATTRIB = {
+                light: '© OpenStreetMap, © CartoDB',
+                dark: '© OpenStreetMap, © CartoDB',
+                sat: 'Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+            };
+
+            // 3. Init Map (Leaflet)
+            $scope.initMap = function() {
+                $scope.map = L.map('map-container', { zoomControl: false }).setView([39.766, -86.156], 14);
+                
+                // Set default layer
+                $scope.addBaseLayer(TILE_SOURCES.light, TILE_ATTRIB.light);
+
+                L.control.zoom({ position: 'bottomright' }).addTo($scope.map);
+            };
+
+            // Helper to swap tiles
+            $scope.addBaseLayer = function(url, attrib) {
+                if ($scope.baseLayer) {
+                    $scope.map.removeLayer($scope.baseLayer);
+                }
+                $scope.baseLayer = L.tileLayer(url, {
+                    maxZoom: 19,
+                    attribution: attrib
+                }).addTo($scope.map);
+            };
+
+            // 4. View Controls
+            $scope.toggleDarkMode = function() {
+                $scope.isDarkMode = !$scope.isDarkMode;
+                
+                // Toggle CSS Class on HTML element for Tailwind
+                if ($scope.isDarkMode) {
+                    document.documentElement.classList.add('dark');
+                    // UX: Auto-switch map to dark if currently on light
+                    if ($scope.currentLayer === 'light') {
+                        $scope.setLayer('dark');
+                    }
+                } else {
+                    document.documentElement.classList.remove('dark');
+                     // UX: Auto-switch map to light if currently on dark
+                    if ($scope.currentLayer === 'dark') {
+                        $scope.setLayer('light');
+                    }
+                }
+            };
+
+            $scope.setLayer = function(type) {
+                $scope.currentLayer = type;
+                $scope.addBaseLayer(TILE_SOURCES[type], TILE_ATTRIB[type]);
+            };
+
+            // 5. Time Logic
+            $scope.getIndyTime = function() {
+                const now = new Date();
+                // Create a date object relative to Indianapolis time
+                const indyString = now.toLocaleString("en-US", {timeZone: TARGET_TIMEZONE});
+                return new Date(indyString);
+            };
+
+            $scope.updateClock = function() {
+                const indyTime = $scope.getIndyTime();
+                
+                // Update Digital Clock Display
+                $scope.clock = indyTime.toLocaleTimeString("en-US", { hour12: false });
+
+                // Update Countdown Timer (Minutes/Seconds until next hour)
+                const minLeft = 59 - indyTime.getMinutes();
+                const secLeft = 59 - indyTime.getSeconds();
+                $scope.timeToRefresh = `${minLeft}m ${secLeft}s`;
+
+                // Check if we need to rotate the map (New Hour)
+                $scope.processData(indyTime);
+            };
+
+            // 6. Data Processing & Rendering
+            $scope.processData = function(dateObj) {
+                if (!dateObj) dateObj = $scope.getIndyTime();
+
+                const hour = dateObj.getHours(); // 0-23
+                const day = dateObj.getDay(); // 0 (Sun) - 6 (Sat)
+                
+                // Determine DayType Key
+                const dayType = (day === 0 || day === 6) ? "WEEKEND" : "WEEKDAY";
+                
+                // Construct the Lookup Key
+                let key = `${dayType}_${hour}`;
+                
+                // FALLBACK LOGIC FOR DEMO:
+                let data = MOCK_INJECTED_DATA[key];
+                if (!data) {
+                    key = "WEEKDAY_GENERIC (Demo Fallback)";
+                    data = MOCK_INJECTED_DATA["WEEKDAY_GENERIC"];
+                }
+
+                $scope.currentModelKey = key;
+                $scope.currentData = data; // Save for re-filtering
+                $scope.renderLayer(); // Render with current data
+            };
+
+            $scope.renderLayer = function() {
+                const geoJsonData = $scope.currentData;
+                if (!geoJsonData || !$scope.map) return;
+
+                if ($scope.geoJsonLayer) {
+                    $scope.map.removeLayer($scope.geoJsonLayer);
+                }
+
+                let count = 0;
+
+                $scope.geoJsonLayer = L.geoJson(geoJsonData, {
+                    // FILTER LOGIC: Uses the CONSTANT displayThreshold (0.3)
+                    filter: function(feature) {
+                        const isVisible = feature.properties.score >= DISPLAY_THRESHOLD;
+                        if (isVisible) count++;
+                        return isVisible;
+                    },
+                    style: function(feature) {
+                        return {
+                            color: $scope.getColor(feature.properties.score),
+                            weight: 5,
+                            opacity: 0.8,
+                            lineCap: 'round'
+                        };
+                    },
+                    onEachFeature: function(feature, layer) {
+                        layer.bindPopup(`Probability Score: <strong>${feature.properties.score}</strong>`);
+                    }
+                }).addTo($scope.map);
+
+                $scope.visibleFeatures = count;
+                
+                // Manually trigger digest if called outside angular context (e.g. initial load)
+                if(!$scope.$$phase) $scope.$digest();
+            };
+
+            $scope.getColor = function(d) {
+                return d > 0.9 ? '#800026' :
+                       d > 0.7 ? '#BD0026' :
+                       d > 0.5 ? '#FC4E2A' :
+                       d > 0.3 ? '#FEB24C' :
+                                '#FFEDA0';
+            };
+
+            // 7. UI Helpers
+            $scope.toggleAbout = function() {
+                $scope.showAbout = !$scope.showAbout;
+            };
+
+            // 8. Boot
+            $timeout(function() {
+                $scope.initMap();
+                $scope.updateClock(); // Run once immediately
+                $interval($scope.updateClock, 1000); // Start the ticker
+            }, 100);
+        });
+    </script>
+</body>
+</html>
