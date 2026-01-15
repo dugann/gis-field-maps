@@ -1,6 +1,6 @@
 # Reference Implementation: Offline Map Rotator
 
-**Status:** De-identified reference artifact  
+**Category:** De-identified reference artifact  
 **Stack:** AngularJS 1.x, Leaflet.js  
 **Architecture:** Single-file offline web app (embedded data)
 
