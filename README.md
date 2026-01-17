@@ -6,6 +6,8 @@
 
 A reference single-page application (SPA) implementing an offline GIS map viewer. This project demonstrates how to deliver time-based geospatial data to field devices in areas with intermittent connectivity.
 
+[![Live Demo](https://img.shields.io/badge/🚀_Live_Demo-View_App-orange)](https://dugann.github.io/gis-field-maps/)
+
 ## Architecture
 
 This solution runs entirely from the local file system without a web server. It bypasses standard browser security restrictions on local file access by embedding data directly into the application build.
