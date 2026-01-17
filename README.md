@@ -12,15 +12,10 @@ This solution runs entirely from the local file system without a web server. It 
 
 ```mermaid
 graph TD
-    A[Input: 48 HTML Files] -->|Python + BeautifulSoup| B(Data Extraction)
-    B -->|Serialization| C{Single JS Constant}
-    C -->|Inject| D[index.html]
-    
-    subgraph Client Device [Field Device / Offline]
-        D -->|Load| E[AngularJS App]
-        E -->|Render| F[Leaflet Map]
-        E -->|Time Check| G[Auto-Rotate Layer]
-    end
+    A[48 HTML Files] -->|Extract| B(JSON Data)
+    B -->|Embed| C[index.html]
+    C -->|Load| D[Offline App]
+    D -->|Time Check| E[Active Map Layer]
 ```
 
 ## Problem
