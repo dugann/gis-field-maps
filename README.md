@@ -13,26 +13,15 @@ This solution runs entirely from the local file system without a web server. It 
 ### Code Structure
 ```mermaid
 graph TD
-    subgraph File [index.html Structure]
-        Head[Head: Libs & Styles]
-        Body[Body: Map Container]
-        Script[Script Block]
-    end
-
-    Head --> Body
-    Body --> Script
-
-    subgraph Logic [Internal Logic]
-        Data{Embedded JSON}
-        Ctrl[Angular Controller]
-        Clock((System Clock))
-    end
-
-    Script --> Data
-    Script --> Ctrl
+    File[index.html] --> Head[Head: Libs & Styles]
+    File --> Body[Body: Map Container]
+    File --> Script[Script Block]
+    
+    Script --> Data{Embedded JSON}
+    Script --> Ctrl[Angular Controller]
     
     Data -->|Inject| Ctrl
-    Clock -->|Trigger| Ctrl
+    Clock((System Clock)) -->|Trigger| Ctrl
     Ctrl -->|Render| Body
 ```
 
