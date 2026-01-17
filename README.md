@@ -12,33 +12,42 @@ This solution is designed to run entirely from the local file system without a w
 
 ```mermaid
 graph TD
-    A[Source Data] -->|Zip Archive| B(Build Process)
-    B -->|Extract & Transform| C{Embedded JS Constant}
+    A[Input: 48 Hourly HTML Files] -->|ETL Process| B(Data Extraction)
+    B -->|Serialization| C{Single JS Constant}
     C -->|Inject| D[index.html]
     
-    subgraph Client Device [Field Device / Offline]
+    subgraph Client Device [No Internet / No Web Server]
         D -->|Load| E[AngularJS App]
         E -->|Render| F[Leaflet Map]
         E -->|Time Check| G[Auto-Rotate Layer]
     end
 ```
 
+## Problem
+
+The primary challenge was the distribution and usability of time-sensitive geospatial forecast data to field staff. The source data arrived as a zipped archive containing **48 separate HTML files**, with each file representing a specific hour of a 2-day forecast.
+
+This format presented significant technical and operational hurdles:
+
+1.  **Fragmentation:** Users had to manually locate, open, and close separate files to see how data evolved over time, making it nearly impossible to visualize trends or changes.
+2.  **Browser Security Constraints:** To create a unified viewer, a standard web application would typically fetch these files dynamically. However, since the application had to run directly from the local file system (using the `file://` protocol), modern browser security (CORS) blocked the application from loading external local files via AJAX or Fetch requests.
+3.  **No Connectivity:** The target devices often operated in zones with zero cellular or Wi-Fi coverage, preventing the use of a remote server or API to aggregate the data.
+
+## Solution
+
+To overcome the browser's local file security restrictions and the usability nightmare of 48 separate files, we developed a **Single-File Compilation Strategy**.
+
+* **Data Ingestion:** A build script parses the 48 source HTML files, extracts the raw geospatial vector data from each, and normalizes it.
+* **Embedded Storage:** Instead of keeping data in external files, the entire 48-hour dataset is serialized into a single JavaScript object and injected directly into the `index.html` source code.
+* **Unified Interface:** This creates a standalone artifact that loads instantly without network requests, bypassing CORS errors completely.
+* **Time-Aware Rendering:** The application reads the device's system clock to automatically select and display the data layer corresponding to the current hour, creating a seamless "live" map experience from static, offline data.
+
 ## Features
 
 * **Truly Offline:** Runs directly from the local file system with no hosting required.
 * **Embedded Data:** Geospatial data is pre-packaged as JavaScript constants to avoid runtime local file access errors.
-* **Auto-Rotation:** Automatically detects the current hour (Indianapolis time zone) to display the relevant forecast layer.
-* **Noise Filtering:** Implements client-side probability thresholds to remove low-value vectors and improve rendering performance on mobile devices.
-
-## Background
-
-This artifact was created to solve a specific field operation challenge:
-
-| Challenge | Previous Solution (Paper) | New Solution (This App) |
-| :--- | :--- | :--- |
-| **Updates** | Stale information; difficult to align with current time. | Auto-updates based on system clock. |
-| **Usability** | Static; cannot zoom for street-level detail. | Interactive zooming and panning. |
-| **Clarity** | Cluttered with low-probability data. | Dynamic filtering of "noisy" data. |
+* **Auto-Rotation:** Automatically detects the current hour to display the relevant forecast layer.
+* **Noise Filtering:** Implements client-side probability thresholds to remove low-value vectors and improve rendering performance.
 
 ## Getting Started
 
@@ -64,8 +73,8 @@ This artifact was created to solve a specific field operation challenge:
 
 ## Technical Details
 
-**Category:** De-identified reference artifact  
-**Stack:** AngularJS 1.x, Leaflet.js  
+**Category:** De-identified reference artifact
+**Stack:** AngularJS 1.x, Leaflet.js
 
 The core innovation in this reference app is the **Build Step** (conceptual). The original input data consisted of 48 separate HTML files (one per hour). To make this work offline without CORS or file-protocol errors:
 
