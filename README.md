@@ -10,12 +10,30 @@ A reference single-page application (SPA) implementing an offline GIS map viewer
 
 This solution runs entirely from the local file system without a web server. It bypasses standard browser security restrictions on local file access by embedding data directly into the application build.
 
+### Code Structure
 ```mermaid
 graph TD
-    A[48 HTML Files] -->|Extract| B(JSON Data)
-    B -->|Embed| C[index.html]
-    C -->|Load| D[Offline App]
-    D -->|Time Check| E[Active Map Layer]
+    subgraph File [index.html Structure]
+        Head[Head: Libs & Styles]
+        Body[Body: Map Container]
+        Script[Script Block]
+    end
+
+    Head --> Body
+    Body --> Script
+
+    subgraph Logic [Internal Logic]
+        Data{Embedded JSON}
+        Ctrl[Angular Controller]
+        Clock((System Clock))
+    end
+
+    Script --> Data
+    Script --> Ctrl
+    
+    Data -->|Inject| Ctrl
+    Clock -->|Trigger| Ctrl
+    Ctrl -->|Render| Body
 ```
 
 ## Problem
