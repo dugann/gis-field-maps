@@ -4,7 +4,7 @@
 [![Stack: AngularJS](https://img.shields.io/badge/Stack-AngularJS_1.x-red)](https://angularjs.org/)
 [![Stack: Leaflet](https://img.shields.io/badge/Stack-Leaflet.js-green)](https://leafletjs.com/)
 
-A reference single-page application (SPA) implementing an offline GIS map viewer. It demonstrates how to deliver time-based geospatial data to field devices in environments with zero reliable internet access. It was originally completed in July 2024.
+A reference single-page application (SPA) implementing an offline GIS map viewer. It demonstrates how to deliver time-based geospatial data to field devices in environments with zero reliable internet access. I originally completed this project in July 2024.
 
 ## Architecture
 
